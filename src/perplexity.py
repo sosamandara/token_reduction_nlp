@@ -3,6 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def evaluate_perplexity(model, encodings, times_to_repeat_stride):
   max_length = model.config.n_positions
