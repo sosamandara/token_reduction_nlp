@@ -4,8 +4,12 @@ models/__pycache__/modeling_topK_gpt2.cpython-311.pyc
 src/__pycache__/functions.cpython-311.pyc
 src/__pycache__/perplexity.cpython-311.pyc
 README.md
-results/recalculated_perplexities_custom_10%.csv
-results/recalculated_perplexities_custom_75%.csv
-results/recalculated_perplexity_comparison_plot.png
-results/recalculated_perplexities_custom_20%.csv
-results/recalculated_perplexities_gpt2.csv
+results/Mean_Attention_Removal/recalculated_perplexities_custom_10%.csv
+results/Mean_Attention_Removal/recalculated_perplexities_custom_75%.csv
+results/Mean_Attention_Removal/recalculated_perplexity_comparison_plot.png
+results/Mean_Attention_Removal/recalculated_perplexities_custom_20%.csv
+results/Mean_Attention_Removal/recalculated_perplexities_gpt2.csv
+notebooks/Perplexity_Comparison_all.ipynb
+notebooks/ag_news_time_taken.ipynb
+notebooks/Perplexity_Comparison.ipynb
+notebooks/retrieve_metrics_and_texts.ipynb

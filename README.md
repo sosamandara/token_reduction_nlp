@@ -23,10 +23,11 @@ Why this study can be helpful:
     ├── results/
     │   ├── generation_results_custom_model_50_with_flops.json
     │   └── generation_results_model_gpt_2_50_with_flops.json
+    ├── src/
+    │   ├── functions.py
     ├── LICENSE
     ├── README.md
     ├── Test_reduction.ipynb
-    ├── functions.py
     └── retrieve_metrics_and_texts.ipynb
 
 The notebook *retrieve_metrics_and_texts.ipynb* is runnable in Colab.
