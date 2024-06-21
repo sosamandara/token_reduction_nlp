@@ -54,7 +54,8 @@ def run_generation_on_dataset(dataset,
                               tokenizer: GPT2Tokenizer,
                               num_examples: int,
                               lengths: list,
-                              model_name: str
+                              model_name: str,
+                              folder_saved: str
                               ):
     results = []
 
@@ -81,7 +82,7 @@ def run_generation_on_dataset(dataset,
 
             results.append(result)
 
-    file_name = f'results/generation_results_{model_name}.json'
+    file_name = f'results/{folder_saved}/generation_results_{model_name}.json'
     with open(file_name, 'w') as f:
         json.dump(results, f, indent=4)
 
