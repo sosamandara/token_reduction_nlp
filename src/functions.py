@@ -12,10 +12,7 @@ from collections import defaultdict
 from torch.utils.flop_counter import FlopCounterMode
 import os
 current_dir = os.getcwd()
-if 'content' in current_dir:
-  from modeling_topK_gpt2 import CustomGPT2LMHeadModel
-else:
-  from models.modeling_topK_gpt2 import CustomGPT2LMHeadModel
+from modeling_topK_gpt2 import CustomGPT2LMHeadModel
 
 
 def load_custom_model(model_name, config, k_percent, selection_method="top_k", layers_to_prune=None):
