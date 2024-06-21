@@ -16,9 +16,10 @@ class CustomModelOutput(ModelOutput):
     cross_attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 class CustomGPT2Attention(GPT2Attention):
-    def __init__(self, config, k_percent=0.1):
+    def __init__(self, config, k_percent=0.1, selection_method="top_k"):
         super().__init__(config)
         self.k_percent = k_percent  # Adjustable top k% of tokens to keep
+        self.selection_method = selection_method  # Method for selecting tokens to remove
 
     def custom_attn(self, query, key, value, attention_mask=None, head_mask=None):
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
@@ -30,8 +31,14 @@ class CustomGPT2Attention(GPT2Attention):
         mean_attention_scores = mean_attention_scores.mean(dim=-2)
         #print(mean_attention_scores)
         k = max(0, int(key_length * self.k_percent))
-        bottom_k_indices = torch.topk(mean_attention_scores, k, dim=-1, largest=False).indices
 
+        if self.selection_method == "top_k":
+            bottom_k_indices = torch.topk(mean_attention_scores, k, largest=False).indices
+        elif self.selection_method == "random":
+            indices = torch.arange(key_length)
+            bottom_k_indices = indices[torch.randperm(key_length)[:k]]
+        else:
+            raise ValueError(f"Unknown selection method: {self.selection_method}")
         # Debugging: Print the value of k and bottom_k_indices
         #print(f"Debug: k value: {k}, bottom_k_indices shape: {bottom_k_indices.shape}")
         #print(bottom_k_indices)
@@ -163,11 +170,11 @@ GPT2_ATTENTION_CLASSES = {
 }
 
 class CustomGPT2Block(GPT2Block):
-    def __init__(self, config, k_percent=0.1, apply_custom_attention=False):
+    def __init__(self, config, k_percent=0.1, selection_method="top_k", apply_custom_attention=False):
         super().__init__(config)
         self.apply_custom_attention = apply_custom_attention
         if apply_custom_attention:
-            self.attn = CustomGPT2Attention(config, k_percent=k_percent)
+            self.attn = CustomGPT2Attention(config, k_percent=k_percent, selection_method=selection_method)
         #attention_class = GPT2_ATTENTION_CLASSES[config._attn_implementation]
 
     def forward(
@@ -288,17 +295,17 @@ class CustomGPT2Block(GPT2Block):
         return outputs
 
 class CustomGPT2Model(GPT2Model):
-    def __init__(self, config, k_percent=0.1, layers_to_prune=None):
+    def __init__(self, config, k_percent=0.1, selection_method="top_k", layers_to_prune=None):
         super().__init__(config)
         if layers_to_prune is None:
             layers_to_prune = [0, 1, 2]  # Apply custom attention only to the first few layers by default
-        self.h = nn.ModuleList([CustomGPT2Block(config, k_percent=k_percent[i], apply_custom_attention=(i in layers_to_prune)) for i in range(config.n_layer)])
+        self.h = nn.ModuleList([CustomGPT2Block(config, k_percent=k_percent[i], selection_method=selection_method, apply_custom_attention=(i in layers_to_prune)) for i in range(config.n_layer)])
         #self.h = nn.ModuleList([CustomGPT2Block(config, k_percent=layers_to_prune.get(i, None)) for i in range(config.n_layer)])
 
 class CustomGPT2LMHeadModel(GPT2LMHeadModel):
-    def __init__(self, config, k_percent=0.1, layers_to_prune=None):
+    def __init__(self, config, k_percent=0.1, selection_method="top_k", layers_to_prune=None):
         super().__init__(config)
-        self.transformer = CustomGPT2Model(config, k_percent=k_percent, layers_to_prune=layers_to_prune)
+        self.transformer = CustomGPT2Model(config, k_percent=k_percent, selection_method=selection_method, layers_to_prune=layers_to_prune)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
     def forward(self, input_ids=None, past_key_values=None, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None, inputs_embeds=None, encoder_hidden_states=None, encoder_attention_mask=None, labels=None, use_cache=None, output_attentions=None, output_hidden_states=None, return_dict=None):

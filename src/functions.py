@@ -10,6 +10,17 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from torch.utils.flop_counter import FlopCounterMode
+from models.modeling_topK_gpt2 import CustomGPT2LMHeadModel
+
+
+def load_custom_model(model_name, config, k_percent, selection_method="top_k", layers_to_prune=None):
+    return CustomGPT2LMHeadModel.from_pretrained(
+        model_name,
+        config=config,
+        k_percent=k_percent,
+        selection_method=selection_method,
+        layers_to_prune=layers_to_prune
+    ).to('cuda')
 
 # Function to calculate FLOPs
 def get_flops(model, inp: Union[torch.Tensor, Tuple], with_backward=False):
