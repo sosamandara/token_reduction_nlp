@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import seaborn as sns
 
 def evaluate_perplexity(model, encodings, times_to_repeat_stride):
   max_length = model.config.n_positions
@@ -105,9 +106,86 @@ def evaluate_and_save_perplexities(models, model_names, encodings, window_sizes,
             })
             log_probs_path = os.path.join(output_dir, f'log_probs_{model_name}_window_{window_size}.csv')
             df_log_probs.to_csv(log_probs_path, index=False)
-            print(f"Saved log probabilities for {model_name} with window size {window_size} to {log_probs_path}")
+            #print(f"Saved log probabilities for {model_name} with window size {window_size} to {log_probs_path}")
 
     print("Evaluation and saving of results completed.")
+
+
+def recalculate_and_plot_perplexities_normal(window_sizes, model_names, output_dir):
+    """
+    Recalculate perplexities from log probabilities, save to CSV, and plot the results.
+
+    :param window_sizes: List of window sizes to evaluate
+    :param model_names: List of names corresponding to the models
+    :param output_dir: Directory to save the results
+    """
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Initialize dictionary to store the recalculated perplexities
+    recalculated_perplexities = {model_name: [] for model_name in model_names}
+
+    # Function to calculate perplexity from log probabilities
+    def calculate_perplexity(log_probs):
+        avg_log_prob = np.mean(log_probs)
+        perplexity = np.exp(-avg_log_prob)
+        return perplexity
+
+    # Recalculate perplexities for each model and window size
+    for model_name in model_names:
+        for window_size in window_sizes:
+            log_probs_filename = f'log_probs_{model_name}_window_{window_size}.csv'
+            log_probs_path = os.path.join(output_dir, log_probs_filename)
+            
+            if not os.path.exists(log_probs_path):
+                # Check alternative naming patterns
+                if model_name == 'gpt2':
+                    log_probs_filename = f'log_probs_gpt2_window_{window_size}.csv'
+                else:
+                    log_probs_filename = f'log_probs_custom_window_{window_size}.csv'
+                
+                log_probs_path = os.path.join(output_dir, log_probs_filename)
+                
+                if not os.path.exists(log_probs_path):
+                    print(f"File not found: {log_probs_path}")
+                    continue
+            
+            log_probs = pd.read_csv(log_probs_path)['log_probs'].tolist()
+            perplexity = calculate_perplexity(log_probs)
+            recalculated_perplexities[model_name].append(perplexity)
+
+    # Save recalculated perplexities to CSV
+    for model_name in model_names:
+        df_recalculated = pd.DataFrame({
+            'window_size': window_sizes,
+            'perplexity': recalculated_perplexities[model_name]
+        })
+        output_path = os.path.join(output_dir, f'recalculated_perplexities_{model_name}.csv')
+        df_recalculated.to_csv(output_path, index=False)
+        #print(f"Saved recalculated perplexities for {model_name} to {output_path}")
+
+    # Plotting the results
+    plt.figure(figsize=(12, 8))
+    sns.set(style="whitegrid")
+
+    # Plot each model's perplexity
+    for model_name in model_names:
+        plt.plot(window_sizes, recalculated_perplexities[model_name], label=model_name.replace("custom", "Top"), marker='o', alpha=0.7)
+    
+    plt.xticks(window_sizes)  # Ensure x-axis has the correct window sizes as ticks
+    plt.xlabel("Context Size (tokens)")
+    plt.ylabel("Perplexity")
+    plt.title("Perplexity Comparison of Models")
+    plt.legend()
+    plt.grid(True, which="both", ls="--")
+
+    # Save the plot to a file
+    plot_path = os.path.join(output_dir, 'recalculated_perplexity_comparison_plot.png')
+    plt.savefig(plot_path)
+    plt.show()
+
+    #print(f"Recalculated perplexities and plot saved to {output_dir}")
 
 
 def recalculate_and_plot_perplexities(window_sizes, model_names, output_dir):
@@ -162,22 +240,34 @@ def recalculate_and_plot_perplexities(window_sizes, model_names, output_dir):
         })
         output_path = os.path.join(output_dir, f'recalculated_perplexities_{model_name}.csv')
         df_recalculated.to_csv(output_path, index=False)
-        print(f"Saved recalculated perplexities for {model_name} to {output_path}")
+        #print(f"Saved recalculated perplexities for {model_name} to {output_path}")
 
     # Plotting the results
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 8))
+    sns.set(style="whitegrid")
+
+    # Plot with a log scale
     for model_name in model_names:
-        plt.plot(window_sizes, recalculated_perplexities[model_name], label=model_name, marker='o')
+        plt.plot(window_sizes, recalculated_perplexities[model_name], label=model_name.replace("custom", "random"), marker='o')
+
+    plt.yscale('log')
     plt.xticks(window_sizes)  # Ensure x-axis has the correct window sizes as ticks
-    plt.xlabel("Context Size")
+    plt.xlabel("Context Size (tokens)")
     plt.ylabel("Perplexity")
     plt.title("Perplexity Comparison of Models")
-    plt.legend()
-    plt.grid(True)
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    plt.grid(True, which="both", ls="--")
+
+    # Annotate the plot
+    for model_name in model_names:
+        for i, window_size in enumerate(window_sizes):
+            plt.annotate(f"{recalculated_perplexities[model_name][i]:.2f}",
+                         (window_size, recalculated_perplexities[model_name][i]),
+                         textcoords="offset points", xytext=(0,10), ha='center')
 
     # Save the plot to a file
     plot_path = os.path.join(output_dir, 'recalculated_perplexity_comparison_plot.png')
-    plt.savefig(plot_path)
+    plt.savefig(plot_path, bbox_inches='tight')
     plt.show()
 
     print(f"Recalculated perplexities and plot saved to {output_dir}")
