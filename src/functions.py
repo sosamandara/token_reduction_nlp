@@ -63,14 +63,20 @@ def generate_text(model, tokenizer, input_text, max_length=100):
 
 # Function to run generation on dataset and record results including FLOPs
 def run_generation_on_dataset(dataset,
-                              model: GPT2LMHeadModel,
-                              tokenizer: GPT2Tokenizer,
-                              num_examples: int,
-                              lengths: list,
-                              model_name: str,
-                              folder_saved: str
-                              ):
+                              model,
+                              tokenizer,
+                              num_examples,
+                              lengths,
+                              model_name,
+                              output_dir):
+    """
+    Function to run generation on dataset and record results including FLOPs.
+    """
     results = []
+
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     for idx in tqdm(range(num_examples), desc="Processing examples"):
         prefix = dataset["train"][idx]["text"]
@@ -90,12 +96,13 @@ def run_generation_on_dataset(dataset,
                 "prefix": prefix,
                 "generated_text": generated_text[len(prefix):],
                 "time_taken": tot_time,
-                "flops": total_flops
+                "flops": total_flops,
+                "model_name": model_name  # Add the model name to each result
             }
 
             results.append(result)
 
-    file_name = f'results/{folder_saved}/generation_results_{model_name}.json'
+    file_name = os.path.join(output_dir, f'generation_results_{model_name}.json')
     with open(file_name, 'w') as f:
         json.dump(results, f, indent=4)
 

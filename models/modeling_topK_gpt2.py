@@ -40,27 +40,12 @@ class CustomGPT2Attention(GPT2Attention):
         elif self.selection_method == "variance":
             variance = torch.var(attn_weights, dim=1).mean(dim=-2)
             bottom_k_indices = torch.topk(variance, k, largest=False).indices
-        elif self.selection_method == "saliency":
-            # Assuming attn_weights_trial requires grad
-            attn_weights_trial.retain_grad()
-            loss = attn_weights_trial.sum()
-            loss.backward()
-            grad_scores = attn_weights_trial.grad.abs().mean(dim=1).mean(dim=-2)
-            bottom_k_indices = torch.topk(grad_scores, k, largest=False).indices
         elif self.selection_method == "sum_attention":
             sum_attention_scores = attn_weights_trial.sum(dim=1).mean(dim=-2)
             bottom_k_indices = torch.topk(sum_attention_scores, k, largest=False).indices
         elif self.selection_method == "max_attention":
             max_attention_scores = attn_weights_trial.max(dim=1).values.mean(dim=-2)
             bottom_k_indices = torch.topk(max_attention_scores, k, largest=False).indices
-        elif self.selection_method == "sparsemax":
-            sparse_attn_weights = sparsemax(attn_weights, dim=-1)
-            mean_sparse_attention_scores = sparse_attn_weights.mean(dim=1).mean(dim=-2)
-            bottom_k_indices = torch.topk(mean_sparse_attention_scores, k, largest=False).indices
-        elif self.selection_method == "entmax":
-            entmax_attn_weights = entmax(attn_weights, dim=-1)
-            mean_entmax_attention_scores = entmax_attn_weights.mean(dim=1).mean(dim=-2)
-            bottom_k_indices = torch.topk(mean_entmax_attention_scores, k, largest=False).indices
         elif self.selection_method == "weighted_sampling":
             probabilities = 1.0 - mean_attention_scores
             probabilities = probabilities / probabilities.sum()
@@ -70,6 +55,17 @@ class CustomGPT2Attention(GPT2Attention):
         # Debugging: Print the value of k and bottom_k_indices
         #print(f"Debug: k value: {k}, bottom_k_indices shape: {bottom_k_indices.shape}")
         #print(bottom_k_indices)
+        
+        #-----------
+        tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        input_tokens = tokenizer.convert_ids_to_tokens(torch.arange(key_length))
+        removed_tokens = tokenizer.convert_ids_to_tokens(bottom_k_indices)
+
+        print(f"Layer: {self.layer_idx}")  # Assuming you have `self.layer_idx` defined
+        print("Input tokens:", input_tokens)
+        print("Removed tokens:", removed_tokens)
+        #----------
+
 
         if self.scale_attn_weights:
             attn_weights = attn_weights / torch.full(
