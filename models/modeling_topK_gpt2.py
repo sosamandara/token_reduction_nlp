@@ -6,6 +6,8 @@ from transformers.file_utils import ModelOutput
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 import time
+import matplotlib.pyplot as plt
+import numpy as np
 
 @dataclass
 class CustomModelOutput(ModelOutput):
@@ -23,14 +25,38 @@ class CustomGPT2Attention(GPT2Attention):
 
     def custom_attn(self, query, key, value, attention_mask=None, head_mask=None):
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
+        print(attn_weights.shape)
         batch_size, num_heads, query_length, key_length = attn_weights.size()
+        k = max(0, int(key_length * self.k_percent))
         attn_weights_trial = nn.functional.softmax(attn_weights, dim=-1)
 
         mean_attention_scores = attn_weights_trial.mean(dim=1)  # Shape: (batch_size, seq_len, seq_len)
-        #print(mean_attention_scores.shape)
+        ###mean_attention_scores_plot = attn_weights[0][0].squeeze()
+        ###mean_attention_scores_plot = mean_attention_scores_plot.cpu().detach().numpy()
+###
+        ####mean_attention_scores_plot = attn_weights_trial.squeeze()
+        ####mean_attention_scores_plot = mean_attention_scores_plot.cpu().detach().numpy()
+        ####mean_attention_scores_plot = mean_attention_scores_plot[0]
+        ###if k>0:
+        ###    # Plotting the heatmap
+        ###    fig, ax = plt.subplots(figsize=(10, 8))
+        ###    heatmap = ax.imshow(mean_attention_scores_plot, cmap="Greens", interpolation="nearest")
+###
+        ###    # Setting the ticks and labels
+        ###    ax.set_xticks(np.arange(key_length))
+        ###    ax.set_yticks(np.arange(key_length))
+###
+        ###    ax.set_xticklabels(range(key_length), rotation=45, ha="right")
+        ###    ax.set_yticklabels(range(key_length))
+###
+        ###    # Adjust layout to make room for labels
+        ###    plt.subplots_adjust(bottom=0.2, top=0.8, left=0.2, right=0.8)
+###
+        ###    plt.show()
+        ####print(mean_attention_scores.shape)
         mean_attention_scores = mean_attention_scores.mean(dim=-2)
-        #print(mean_attention_scores)
-        k = max(0, int(key_length * self.k_percent))
+        ####print(mean_attention_scores)
+        
 
         if self.selection_method == "top_k":
             bottom_k_indices = torch.topk(mean_attention_scores, k, largest=False).indices
@@ -54,18 +80,9 @@ class CustomGPT2Attention(GPT2Attention):
             raise ValueError(f"Unknown selection method: {self.selection_method}")
         # Debugging: Print the value of k and bottom_k_indices
         #print(f"Debug: k value: {k}, bottom_k_indices shape: {bottom_k_indices.shape}")
-        #print(bottom_k_indices)
-        
-        #-----------
-        tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-        input_tokens = tokenizer.convert_ids_to_tokens(torch.arange(key_length))
-        removed_tokens = tokenizer.convert_ids_to_tokens(bottom_k_indices)
-
-        print(f"Layer: {self.layer_idx}")  # Assuming you have `self.layer_idx` defined
-        print("Input tokens:", input_tokens)
-        print("Removed tokens:", removed_tokens)
-        #----------
-
+        if k>0:
+            #print(mean_attention_scores)
+            print(bottom_k_indices, mean_attention_scores.shape)
 
         if self.scale_attn_weights:
             attn_weights = attn_weights / torch.full(
