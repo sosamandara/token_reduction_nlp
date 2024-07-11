@@ -62,7 +62,7 @@ def generate_text(model, tokenizer, input_text, max_length=100):
 
     removed_tokens = []
     for idx in indices[0, :]:
-        removed_tokens.append(tokenizer.decode(input_ids[0, idx].item(), skip_special_tokens=True))
+        removed_tokens.append(tokenizer.decode(input_ids[0, idx].item(), skip_special_tokens=True).strip())
     return generated_text, model.indices, removed_tokens, input_ids[0].tolist()
 
 #generated_text = """The problem is not the problem. The problem is your attitude about the problem."""
@@ -122,31 +122,17 @@ def run_generation_on_dataset(dataset, model, tokenizer, num_examples, lengths, 
     return results, token_counts, token_appearance_counts
 
 # Specify a new cache directory
-os.environ['HF_DATASETS_CACHE'] = 'D:\cache'
+#os.environ['HF_DATASETS_CACHE'] = 'D:\cache'
 # Load the ag_news dataset
 dataset = load_dataset("ag_news")
 
-num_examples = 120000 # Adjust as needed
+num_examples = len(dataset["train"]) # Adjust as needed
 lengths = [1]  # Adjust as needed
 output_dir = "./output"
-
 results, token_counts, token_appearance_counts = run_generation_on_dataset(dataset, top_K_30, tokenizer, num_examples, lengths, model_name, output_dir)
 
 # Create a list of tuples for the CSV
-data = []
-for token, removed_count in token_counts.items():
-    appearance_count = token_appearance_counts.get(token, 0)
-    relative_removal = removed_count / appearance_count if appearance_count > 0 else 0
-    data.append((token, removed_count, appearance_count, relative_removal))
-
-# Sort data by removed_count in descending order
-data = sorted(data, key=lambda x: x[1], reverse=True)
-
-# Create a DataFrame and save as CSV
-df = pd.DataFrame(data, columns=["token", "removed_token_count", "token_appearance_count", "relative_removal"])
-df.to_csv(os.path.join(output_dir, f'token_removal_statistics_{model_name}.csv'), index=False)
-
-print("Results saved to the output directory.")
+# Debug: Print token counts before creating CSV
 print("Token counts (removal):")
 for token, count in token_counts.items():
     print(f"'{token}': {count}")
@@ -154,3 +140,21 @@ for token, count in token_counts.items():
 print("\nToken counts (appearance):")
 for token, count in token_appearance_counts.items():
     print(f"'{token}': {count}")
+
+# Create a list of tuples for the CSV
+data = []
+for token, appearance_count in token_appearance_counts.items():
+    print("-------", token, "------", appearance_count, "------", token_counts.get(token, 0))
+    removed_count = token_counts.get(token, 0)
+    relative_removal = removed_count / appearance_count if appearance_count > 0 else 0
+    data.append((token, removed_count, appearance_count, relative_removal))
+
+# Sort data by removed_count in descending order
+data = sorted(data, key=lambda x: x[1], reverse=True)
+
+
+# Create a DataFrame and save as CSV
+df = pd.DataFrame(data, columns=["token", "removed_token_count", "token_appearance_count", "relative_removal"])
+df.to_csv(os.path.join(output_dir, f'token_removal_statistics_{model_name}.csv'), index=False)
+
+print("Results saved to the output directory.")
