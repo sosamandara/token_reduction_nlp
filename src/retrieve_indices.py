@@ -90,10 +90,13 @@ def run_generation_on_dataset(dataset, model, tokenizer, num_examples, lengths, 
         all_input_ids = []
 
         for single_len in lengths:
-            for _ in range(single_len):
-                generated_text, indices, removed_tokens, input_ids = generate_text(model, tokenizer, generated_text, max_length=len(tokenizer(generated_text)["input_ids"]) + 1)
+            try:
+                generated_text, indices, removed_tokens, input_ids = generate_text(model, tokenizer, generated_text, max_length=1024)
                 all_removed_tokens.extend(removed_tokens)
                 all_input_ids.extend(input_ids)
+            except Exception as e:
+                #print(f"Error processing example {idx}: {e}")
+                continue
 
         result = {
             "example_index": idx,
@@ -124,27 +127,27 @@ def run_generation_on_dataset(dataset, model, tokenizer, num_examples, lengths, 
 # Specify a new cache directory
 #os.environ['HF_DATASETS_CACHE'] = 'D:\cache'
 # Load the ag_news dataset
-dataset = load_dataset("ag_news")
+dataset = load_dataset("imdb")
 
-num_examples = len(dataset["train"]) # Adjust as needed
+num_examples =  len(dataset["train"]) # Adjust as needed
 lengths = [1]  # Adjust as needed
 output_dir = "./output"
 results, token_counts, token_appearance_counts = run_generation_on_dataset(dataset, top_K_30, tokenizer, num_examples, lengths, model_name, output_dir)
 
 # Create a list of tuples for the CSV
 # Debug: Print token counts before creating CSV
-print("Token counts (removal):")
-for token, count in token_counts.items():
-    print(f"'{token}': {count}")
-
-print("\nToken counts (appearance):")
-for token, count in token_appearance_counts.items():
-    print(f"'{token}': {count}")
+#print("Token counts (removal):")
+#for token, count in token_counts.items():
+#    print(f"'{token}': {count}")
+#
+#print("\nToken counts (appearance):")
+#for token, count in token_appearance_counts.items():
+#    print(f"'{token}': {count}")
 
 # Create a list of tuples for the CSV
 data = []
 for token, appearance_count in token_appearance_counts.items():
-    print("-------", token, "------", appearance_count, "------", token_counts.get(token, 0))
+    #print("-------", token, "------", appearance_count, "------", token_counts.get(token, 0))
     removed_count = token_counts.get(token, 0)
     relative_removal = removed_count / appearance_count if appearance_count > 0 else 0
     data.append((token, removed_count, appearance_count, relative_removal))
