@@ -25,7 +25,7 @@ class CustomGPT2Attention(GPT2Attention):
 
     def custom_attn(self, query, key, value, attention_mask=None, head_mask=None):
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
-        print(attn_weights.shape)
+        #print(attn_weights.shape)
         batch_size, num_heads, query_length, key_length = attn_weights.size()
         k = max(0, int(key_length * self.k_percent))
         attn_weights_trial = nn.functional.softmax(attn_weights, dim=-1)
@@ -80,9 +80,9 @@ class CustomGPT2Attention(GPT2Attention):
             raise ValueError(f"Unknown selection method: {self.selection_method}")
         # Debugging: Print the value of k and bottom_k_indices
         #print(f"Debug: k value: {k}, bottom_k_indices shape: {bottom_k_indices.shape}")
-        if k>0:
-            #print(mean_attention_scores)
-            print(bottom_k_indices, mean_attention_scores.shape)
+        #if k>0:
+        #    #print(mean_attention_scores)
+        #    print(bottom_k_indices, mean_attention_scores.shape)
 
         if self.scale_attn_weights:
             attn_weights = attn_weights / torch.full(
@@ -203,7 +203,7 @@ class CustomGPT2Attention(GPT2Attention):
 #
         #present = (key, value) if use_cache else None
 
-        return attn_output, mask#present, mask
+        return attn_output, mask, bottom_k_indices#present, mask
 
 GPT2_ATTENTION_CLASSES = {
     "eager": CustomGPT2Attention,
@@ -235,7 +235,7 @@ class CustomGPT2Block(GPT2Block):
         # Get mask and adjust tensors from custom attention
         if self.apply_custom_attention:
             #print("Customized Attention",self.apply_custom_attention)
-            attn_outputs, mask = self.attn(
+            attn_outputs, mask, indices = self.attn(
                 hidden_states,
                 layer_past=layer_past,
                 attention_mask=attention_mask,
@@ -308,6 +308,7 @@ class CustomGPT2Block(GPT2Block):
             )
             attn_output = attn_outputs[0]
             outputs = attn_outputs[1] if use_cache else None
+            indices = attn_outputs[2]
 
         residual = hidden_states
         #print("hidden_states",hidden_states,hidden_states.shape)
@@ -333,7 +334,7 @@ class CustomGPT2Block(GPT2Block):
         else:
             outputs = (hidden_states,) + (outputs[1:],)
 
-        return outputs
+        return outputs, indices
 
 class CustomGPT2Model(GPT2Model):
     def __init__(self, config, k_percent=0.1, selection_method="top_k", layers_to_prune=None):
@@ -348,6 +349,7 @@ class CustomGPT2LMHeadModel(GPT2LMHeadModel):
         super().__init__(config)
         self.transformer = CustomGPT2Model(config, k_percent=k_percent, selection_method=selection_method, layers_to_prune=layers_to_prune)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.indices = None
 
     def forward(self, input_ids=None, past_key_values=None, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None, inputs_embeds=None, encoder_hidden_states=None, encoder_attention_mask=None, labels=None, use_cache=None, output_attentions=None, output_hidden_states=None, return_dict=None):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -400,7 +402,7 @@ class CustomGPT2LMHeadModel(GPT2LMHeadModel):
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
             #print(f"Layer {i} input shape: {hidden_states.shape}")
-            outputs = block(
+            outputs, indices = block(
                 hidden_states,
                 layer_past=layer_past,
                 attention_mask=attention_mask,
@@ -410,6 +412,10 @@ class CustomGPT2LMHeadModel(GPT2LMHeadModel):
                 use_cache=use_cache,
                 output_attentions=output_attentions,
             )
+
+            if indices.shape[1]>0:
+                self.indices = indices
+            #print(indices)
 
             hidden_states = outputs[0]
             #print(f"Layer {i} output shape: {hidden_states.shape}")
