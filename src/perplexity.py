@@ -61,6 +61,49 @@ def evaluate_perplexity_with_window(model, encodings, window_size, untill_sequen
   perplexity = np.exp(-avg_log_prob)
   return perplexity, log_probs
 
+def evaluate_and_save_average_perplexities_avg(models, model_names, encodings, window_sizes, output_dir, num_samples=10000):
+    """
+    Evaluate and save the average perplexity for a list of models.
+
+    :param models: List of models to evaluate
+    :param model_names: List of names corresponding to the models
+    :param encodings: Encodings to use for evaluation
+    :param window_sizes: List of window sizes to evaluate
+    :param output_dir: Directory to save the results
+    :param num_samples: Number of samples to evaluate (default: 10000)
+    """
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    average_perplexities = []
+
+    for model, model_name in zip(models, model_names):
+        total_perplexity = 0.0
+
+        for window_size in window_sizes:
+            print(f"Evaluating {model_name} with window size {window_size}")
+            perplexity, _ = evaluate_perplexity_with_window(model, encodings, window_size, num_samples)
+            total_perplexity += perplexity
+
+        # Calculate the average perplexity across all window sizes
+        average_perplexity = total_perplexity / len(window_sizes)
+        average_perplexities.append(average_perplexity)
+
+        print(f"Average perplexity for {model_name}: {average_perplexity}")
+
+    # Create DataFrame for average perplexities
+    df_average_perplexities = pd.DataFrame({
+        'model_name': model_names,
+        'average_perplexity': average_perplexities
+    })
+
+    # Save the DataFrame to a CSV file
+    output_path = os.path.join(output_dir, 'average_perplexities.csv')
+    df_average_perplexities.to_csv(output_path, index=False)
+
+    print(f"Saved average perplexity results to {output_path}")
+    print("Evaluation and saving of results completed.")
 
 def evaluate_and_save_perplexities(models, model_names, encodings, window_sizes, output_dir, num_samples=10000):
     """
